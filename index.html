@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html lang="en">
+	<head>
+		<title>POINT CLOUD VIEWER</title>
+		<style>
+			body {
+				/* set margin to 0 and overflow to hidden, to go fullscreen */
+				margin: 0;
+				overflow: hidden;
+				background-color: #000000;
+			}
+			#info-output {
+				color: #fff;
+				position: absolute;
+				top: 10px;
+				width: 100%;
+				text-align: center;
+				z-index: 0;
+				display:block;
+			}
+		</style>
+	</head>
+	<body>
+
+		<div id="info-output"></div>
+		<div id="stats-output"></div>
+		<div id="webgl-output"></div>
+
+		<script src="js/three.js"></script>
+		<script src="js/PLYLoader.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/stats.min.js"></script>
+		<script src="js/dat.gui.js"></script>
+
+		<script>
+
+			window.addEventListener('load', init);
+			window.addEventListener('resize', onWindowResize, false);
+
+			var stats, loadermanager, scene, camera, renderer;
+			var view_controls, param_controls, light_ambient;
+			var figure, material;
+			var parameters = {
+								ply_file: "teams.ply",
+								point_size: 0.1,
+								point_opacity: 0.4,
+								point_color: false,
+								bkg_color: 0x000000
+							};
+
+			// init
+			function init() {
+
+				stats = initStats();
+				loadermanager = initLoaderManager();
+
+				// Scene
+				scene = new THREE.Scene();
+
+				// Camera
+				camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+				camera.position.x = 700;
+				camera.position.y = 700;
+				camera.position.z = 700;
+				camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+				// Renderer
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				renderer.setClearColor(parameters.colorBack, 1)
+				renderer.shadowMap.enabled = true;
+				document.getElementById("webgl-output").appendChild(renderer.domElement);
+
+				// Interactive viewing controls
+				view_controls = new THREE.OrbitControls(camera, renderer.domElement);
+				view_controls.enableZoom = true;
+				view_controls.enableKeys = true;
+				view_controls.enablePan = true;
+
+				// Interactive parameter controls
+				this.update_params = function() {
+					figure.material.size = parameters.point_size;
+					figure.material.opacity = parameters.point_opacity;
+					if (parameters.point_color){
+						figure.material.vertexColors = THREE.VertexColors;
+					}
+					else {
+						// figure.material.vertexColors = THREE.NoColors;
+						// figure.material.color.set(0xffffff);
+						figure.material.color.setRGB(1,1,1);
+					}
+					figure.material.needsUpdate = true;
+					renderer.setClearColor(parameters.bkg_color, 1);
+				}
+				param_controls = new dat.GUI();
+				param_controls.add(parameters, 'ply_file', {'TEAMS': 'teams.ply', 'RFS': 'rfs.ply', '50C': '50c.ply'}).name("PLY file").listen().onChange(load_ply);
+				param_controls.add(parameters, 'point_size').min(0.001).max(1).step(0.001).name("Point Size").listen().onChange(update_params);
+				param_controls.add(parameters, 'point_opacity').min(0.1).max(1).step(0.1).name('Opacity').listen().onChange(update_params);
+				param_controls.addColor(parameters, 'bkg_color').name('Background color').listen().onChange(update_params);
+				param_controls.add(parameters, 'point_color', {'None': false, 'RGB': true}).name('Point color').listen().onChange(update_params);
+
+				// Lighting
+				light_ambient = new THREE.AmbientLight(0x8000A0);
+				scene.add(light_ambient);
+
+				// Load PLY
+				load_ply();
+
+				// Render
+				render();
+
+			}
+
+			// Load PLY
+			function load_ply(){
+				removeFromScene(scene, "point_cloud")
+
+				var loader = new THREE.PLYLoader(loadermanager);
+				figure = new THREE.Object3D();
+
+				document.getElementById("info-output").innerHTML = "Loading PLY...";
+
+				loader.load("plys/" + parameters.ply_file, function (geometry) {
+					material = new THREE.PointsMaterial({
+						side: THREE.DoubleSide,
+						color: 0xffffff,
+						precision: "highp",
+						size: parameters.point_size,
+						opacity: parameters.point_opacity,
+						transparent: true
+					});
+
+					if (parameters.point_color){
+						material.vertexColors = THREE.VertexColors;
+					}
+					else {
+						//material.vertexColors = THREE.NoColors;
+						material.color.setRGB(1,1,1);
+					}
+
+					figure = new THREE.Points(geometry, material);
+					//figure.sortParticles = true;
+					figure.name = "point_cloud"
+					scene.add(figure);
+
+				});
+			}
+
+			function removeFromScene(scene, objName) {
+				scene.children = scene.children.filter(
+					function( obj ) {
+						return obj.name != objName;
+					}
+				);
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+			function render() {
+				stats.update();
+				view_controls.update();
+				requestAnimationFrame(render);
+				renderer.render(scene, camera);
+			}
+
+			function initStats() {
+
+				var stats = new Stats();
+				stats.setMode(0); // 0: fps, 1: ms
+
+				// Align top-left
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.left = '0px';
+				stats.domElement.style.top = '0px';
+
+				document.getElementById("stats-output").appendChild(stats.domElement);
+
+				return stats;
+			}
+
+
+			function initLoaderManager(){
+
+				var manager = new THREE.LoadingManager();
+
+				manager.onStart = function (url, itemsLoaded, itemsTotal) {
+					// console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+					document.getElementById("info-output").innerHTML = 'Started loading file: ' + url;
+				};
+
+				manager.onLoad = function () {
+					// console.log( 'Loading complete!');
+				};
+
+				manager.onProgress = function (url, itemsLoaded, itemsTotal) {
+					// console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+					document.getElementById("info-output").innerHTML = "Loaded: " + url;
+				};
+
+				manager.onError = function (url) {
+					// console.log( 'There was an error loading ' + url );
+					document.getElementById("info-output").innerHTML = 'There was an error loading ' + url;
+				};
+
+				return manager;
+			}
+
+			// window.onload = init;
+
+		</script>
+	</body>
+</html>
