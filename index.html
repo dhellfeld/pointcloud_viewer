@@ -42,7 +42,7 @@
 			var view_controls, param_controls, light_ambient;
 			var figure, material;
 			var parameters = {
-								ply_file: "teams.ply",
+								ply_file: "test_1.ply",
 								point_size: 0.1,
 								point_opacity: 0.4,
 								point_color: false,
@@ -94,7 +94,7 @@
 					renderer.setClearColor(parameters.bkg_color, 1);
 				}
 				param_controls = new dat.GUI();
-				param_controls.add(parameters, 'ply_file', {'TEAMS': 'teams.ply', 'RFS': 'rfs.ply', '50C': '50c.ply'}).name("PLY file").listen().onChange(load_ply);
+				param_controls.add(parameters, 'ply_file', {'TEST1': 'test_1.ply', 'TEST2': 'test_2.ply'}).name("PLY file").listen().onChange(load_ply);
 				param_controls.add(parameters, 'point_size').min(0.001).max(1).step(0.001).name("Point Size").listen().onChange(update_params);
 				param_controls.add(parameters, 'point_opacity').min(0.1).max(1).step(0.1).name('Opacity').listen().onChange(update_params);
 				param_controls.addColor(parameters, 'bkg_color').name('Background color').listen().onChange(update_params);
